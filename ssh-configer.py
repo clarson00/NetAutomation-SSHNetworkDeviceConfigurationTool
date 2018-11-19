@@ -59,11 +59,11 @@ def process_command_line(argv):
 
 ### Set the directory to current directory unless option is set
     directory = os.getcwd()
-    print options
+
 
     if options.directory != None:
         directory = options.directory
-    print directory
+
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -76,16 +76,22 @@ def process_command_line(argv):
 
 
 
+
+
     return options, args
 
-def open_file():
+def open_file(args=None):
     # Create empty lists
     devices=[]
     devices1=[]
-    file = raw_input("What is the path/filename?")
+
+    if not args:
+        file = raw_input("What is the path/filename?")
+    else:
+        file=args[0]
 
     try:
-        with open('C:\Users\clarson\Desktop\Python Class\devices.csv') as csvfile:
+        with open(file) as csvfile:
             reader = csv.reader(csvfile, delimiter = ',', quotechar= '|')
             configs = list(reader)
             counter = len(configs[0]) -1
@@ -105,6 +111,7 @@ def open_file():
 
     except IOError:
         print "\n* File %s does not exist! Please check and try again!\n" % file
+        exit()
 
     devices.reverse()
     return devices
@@ -130,6 +137,7 @@ def open_ssh_conn(ip):
     #username=''
     #password=''
     #print ip
+    err=[]
 
     try:
 
@@ -162,11 +170,14 @@ def open_ssh_conn(ip):
         time.sleep(1)
         router_output = connection.recv(131072)
 
-        print "****   OUTPUT FOR DEVICE: %s    ****"  %ip[0]
-        if re.search(r"% ", router_output) or re.search(r"Bad mask /", router_output):
-            print "*** There was at least one IOS syntax error on device %s ***\n\n" % ip[0]
+        print "****   Begin Configuration for: %s    ****\n"  %ip[0]
         print router_output
-        print "\n****    DONE for device %s    ****\n\n" % ip[0]
+        print "\n****  Configuration for: %s  - Complete   ****" % ip[0]
+        if re.search(r"% ", router_output) or re.search(r"Bad mask /", router_output):
+            print "*** There was at least one IOS syntax error on device %s ***" % ip[0]
+            errmsg = "Device Named: %s with IP: %s is believed to have errors. Please check the implementation log" % (ip[0],ip[1])
+            err.append(errmsg)
+        print "\n\n"
 
 
 #log the router output to a file
@@ -182,6 +193,9 @@ def open_ssh_conn(ip):
 
         #Closing the connection
         session.close()
+
+        for x in err:
+            print x
 
 
     except paramiko.AuthenticationException:
@@ -253,15 +267,13 @@ def user_creds():
     global password
 
     username = raw_input("username: ")
-    password = getpass.fallback_getpass("password: ")
+    password = getpass.getpass("password: ")
 
 
 
 def main(argv=None):
     options, args = process_command_line(argv)
-    print options
-    print args
-    configs=open_file()
+    configs=open_file(args)
     #clean_data(configs)
     for i in configs:
         if is_valid_ip(i[1]) == True:
