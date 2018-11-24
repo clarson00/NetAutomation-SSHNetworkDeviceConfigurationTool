@@ -76,6 +76,9 @@ def process_command_line(argv):
                       help=' Commands file output naming mode. IP = use IP in filename. NAME = use hostname in filename. Default is to use IP',)
 
 
+    parser.add_option("-f",
+                      action="store_true", dest="fresh_logs",
+                      help="Deletes and creates new session log file")
 
 
 
@@ -87,7 +90,7 @@ def process_command_line(argv):
 
     ### cannot current;y run multithreading and indivual logins at the same time
     if options.dlogin and options.multithread:
-        print "You cannot have multihread and per device login at the same time"
+        print "You cannot have multihread and per device login at the same time!"
         exit()
 
 ### set initial options
@@ -107,10 +110,14 @@ def process_command_line(argv):
     if options.mode == "NAME":
         mode = "NAME"
 
+    if options.fresh_logs:
+        if os.path.exists("ssh-configurator-session.log"):
+            os.remove("ssh-configurator-session.log")
+
+
 
 
     return options, args
-
 
 
 def open_file(args=None):
