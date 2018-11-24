@@ -1,0 +1,31 @@
+Router 1,Router 2
+192.168.1.190,192.168.1.192
+,
+,
+,
+,
+!//tedsfggd,
+,
+,
+,
+config t,config t
+int gi2,int gi2
+ip add 1.1.1.1 255.255.255.0,ip add 2.2.2.2 255.255.255.0
+!,!
+ip route 5.5.5.5 255.255.255.255 2.2.2.2,ip route 5.5.5.5 255.255.255.255 1.1.1.1
+!,!
+,int gi 3
+,ip add 3.3.3.3 255.255.255.255
+router bgp 65549,ip route 4.4.4.4 255.255.255.255 1.1.1.1
+ bgp log-neighbor-changes,
+neigh 192.168.1.154 remote-as 65549,
+,router bgp 65549
+, bgp log-neighbor-changes
+end,neigh 192.168.1.153 remote-as 65549
+,
+,end
+,
+,
+sh ip bgp summ,sh ip bgp summ
+,
+wr me,wr me
