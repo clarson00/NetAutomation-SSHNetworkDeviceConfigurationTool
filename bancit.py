@@ -11,6 +11,7 @@ import re
 import getpass
 import logging
 import glob
+import itertools
 
 def process_command_line(argv):
     global mode
@@ -61,7 +62,7 @@ def process_command_line(argv):
                       help="Require a seperate login for each device. The default assumes a single username and password across all devices. Cannot be used with -m currently")
 
     parser.add_option("-t",
-                      action="store", dest="time_wait",
+                      action="store", dest="time_wait", default=2, type="float",
                       help="Set's a wait time for output after sending all commands to device. For commands that can run long before providing output ie.e wr memory or "
                            "show ip route in routers with long routing tables")
 
@@ -216,7 +217,7 @@ def open_ssh_conn(ip):
         logging.info("Sending commands to %s %s", ip[0],ip[1])
         for x in cmds:
             connection.send(x + '\n')
-        time.sleep(2)
+        time.sleep(time_wait)
         router_output = connection.recv(131072)
 
         print "****   Configuration response for: %s  ****\n"  %ip[0]
@@ -227,9 +228,9 @@ def open_ssh_conn(ip):
             errmsg = "Device Named: %s with IP: %s is believed to have errors. Please check the implementation log" % (ip[0],ip[1])
             logging.warning(errmsg)
             err.append(errmsg)
-            print "\nConfiguration for: %s - Complete with errors " % ip[0]
+            print "\nConfiguration for %s complete with errors " % ip[0]
         else:
-            print "\nConfiguration for: %s - Complete" % ip[0]
+            print "\nConfiguration for %s complete" % ip[0]
 
 
 
@@ -322,24 +323,79 @@ def create_threads(configs):
 ############# Single thread the task so devices done in order #############
 
 def create_interactive(configs):
+    c=False
 
     if not dlogin:
         user_creds()
 
-    for ip in configs:
 
-        print "\n\n****** The following commands will be sent to %s at %s ******\n" % (ip[0],ip[1])
-        for cmd in ip[3:]:
-            print cmd
-        print "\n"
-        print "Configure device %s at %s?" % (ip[0],ip[1])
-        go = raw_input("(c)onfigure, (s)kip, or (q)uit?")
-        logging.info("Sending job to device")
-        if dlogin:
-            user_creds()
-        #ip = ip[1].rstrip("\n")
-        open_ssh_conn(ip)   #args is a tuple with a single element
-        go = raw_input("(q)uit or (n)ext configuration: ")
+
+    for count, ip in enumerate(configs, start=1):
+        while True:
+            print "\n\n****** Job %s of %s  ******" % (count, len(configs))
+            print "****** The following commands will be sent to %s at %s ******\n" % (ip[0],ip[1])
+            for cmd in ip[3:]:
+                print cmd
+            print "\n****** End job %s commands set ******" % count
+            print "\n"
+            print "Configure device %s at %s with job %s?" % (ip[0],ip[1],count)
+
+
+            go = raw_input("(c)onfigure, (s)kip, or (q)uit?")
+            try:
+                if go[:1].lower() == "q":
+                    exit()
+                elif go[:1].lower() == "s":
+                    print "\nskipping Job %s Device %s at %s\n" % (count, ip[0],ip[1])
+                    logging.info("User skipped job %s device %s at %s configuration",count,ip[0],ip[1])
+                    break
+
+                elif go[:1].lower() =="c":
+                    logging.info("Sending job %s to device %s at %s", count,ip[0],ip[1])
+                    print "\nSending job to device %s...\n" % ip[0]
+                    if dlogin:
+                        user_creds()
+                    open_ssh_conn(ip)   #args is a tuple with a single element
+                    c = True
+                    break
+                else:
+                    pass
+
+
+            except KeyboardInterrupt:
+                print "\n\n* Program aborted by user. Exiting...\n"
+                logging.info("Exiting at user request")
+                sys.exit()
+
+        if c == True:
+
+
+            while True:
+                v=raw_input("(q)uit, (r)evert configuration, or (n)ext device? ")
+                if v[:1] == "q":
+                    sys.exit()
+                elif v[:1] == "n":
+                    break
+                elif v[:1] == "r":
+                    print "The reversion system is still under construction.."
+                else:
+                    pass
+        else:
+            while True:
+                v=raw_input("(q)uit or (n)ext device? ")
+                if v[:1] == "q":
+                    sys.exit()
+                elif v[:1] == "n":
+                    break
+                elif v[:1] == "r":
+                    print "The reversion system is still under construction.."
+                else:
+                    pass
+
+
+
+
+
 
 ##### Get user login information
 def user_creds():
@@ -390,7 +446,7 @@ def main(argv=None):
 
     # Does user want to check reachability of IP? Is so, call reachable function
     while True:
-        do_ping = raw_input("\n\n# Check Reachability via ping?: (Y)es/(N)o/(Q)uit ")
+        do_ping = raw_input("\n\n# Check Reachability via ping? (y)es, (n)o, (q)uit: ")
         try:
             if do_ping[:1].lower() == "y":
                 reachable(configs)
@@ -435,7 +491,7 @@ def main(argv=None):
 
 
     logging.info("Session Complete")
-    print "\n\n\nSession complete. Thanks for using BANCIT - Barclays Awesome Network Configuration Implementation Tool"
+    print "\n\n\nSession complete. Thanks for using BANCIT - Bobs Awesome Network Configuration Implementation Tool"
     return 0
 
 
