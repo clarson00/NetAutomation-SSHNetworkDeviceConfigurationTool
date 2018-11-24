@@ -10,8 +10,7 @@ import time
 import re
 import getpass
 import logging
-import glob
-import itertools
+
 
 def process_command_line(argv):
     global mode
@@ -92,7 +91,7 @@ def process_command_line(argv):
     ### cannot current;y run multithreading and indivual logins at the same time
     if options.dlogin and options.multithread:
         print "You cannot have multihread and per device login at the same time!"
-        exit()
+        sys.exit()
 
 ### set initial options
     dlogin = options.dlogin
@@ -344,7 +343,7 @@ def create_interactive(configs):
             go = raw_input("(c)onfigure, (s)kip, or (q)uit?")
             try:
                 if go[:1].lower() == "q":
-                    exit()
+                    sys.exit()
                 elif go[:1].lower() == "s":
                     print "\nskipping Job %s Device %s at %s\n" % (count, ip[0],ip[1])
                     logging.info("User skipped job %s device %s at %s configuration",count,ip[0],ip[1])
@@ -442,7 +441,7 @@ def main(argv=None):
         else:
            print "%s is NOT a valid IP. Please check configs and try again." % ip[1]
            logging.warning("%s is not a valid IP", ip)
-           exit()
+           sys.exit()
 
     # Does user want to check reachability of IP? Is so, call reachable function
     while True:
@@ -497,4 +496,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     status=main()
-    sys.exit(status)
+    exit(status)
