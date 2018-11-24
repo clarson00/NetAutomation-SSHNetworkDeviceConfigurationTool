@@ -1,4 +1,4 @@
-[[https://github.com/clarson00/cisco-config/blob/master/bob.jpg]]
+[https://github.com/clarson00/cisco-config/blob/master/bob.jpg]
 # bancit.py - "Bobs" Awesome Network Configuration Implementation Tool
 The bancit tool takes a CSV file of devices and configurations and pushes the them to the respective devices. The CSV file can be constructed in excel where each column is a single device with the first row in the column being the device name, the second row in the column being a reachable IP to send the configs over, and the 3rd row and beyond containing a configuration command per line. This is much like copying a cisco config into notepad for pasting into a device where each line is a configuration command except here line 1 should be the device name,  line 2 should be the device IP, and line 3 and beyond the commands to send to the device with each column being a different device.
 
