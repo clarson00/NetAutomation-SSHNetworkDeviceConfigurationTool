@@ -496,4 +496,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     status=main()
-    exit(status)
+    sys.exit(status)
