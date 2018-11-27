@@ -121,36 +121,24 @@ def process_command_line(argv):
 
 
 def open_file(args=None):
-    # Create empty lists
+    # Create empty list
+    device=[]
     devices=[]
-    devices1=[]
+
+    #If command line argument not set for file, ask user
     while True:
         if not args:
             file = raw_input("What is the path/filename to the configuration csv file?\n>")
         else:
             file=args[0]
-
-
         logging.info("Attempting to open file: %s", file)
 
+        #Open file and transpose list of devices and configuraitons
         try:
             with open(file) as csvfile:
                 reader = csv.reader(csvfile, delimiter = ',', quotechar= '|')
                 configs = list(reader)
-                counter = len(configs[0]) -1
-                counter2 = len(configs[0])
-                #print configs
-
-    #Re-order from a list of rows into a list of columms. So now it will be 1 Device and config per row.
-
-            while counter >= 0:
-                for i in configs:
-                    device=i[counter]
-                    if device !="":
-                        devices1.append(device.strip())
-                counter -=1
-                devices.append(devices1)
-                devices1=[]
+            device = [[i[x].strip() for i in configs if i != " "]for x in range(len(configs[0]))]
             csvfile.close()
             break
 
@@ -159,12 +147,13 @@ def open_file(args=None):
             logging.warning("File %s does not exist!", file)
             continue
 
-    logging.info("File %s opened with %s columns:", file, counter2)
-    print "\n\nFile %s opened with %s configurations/columns.\n" % (file, counter2)
+    #remove all the blank configuration lines from the final list
+    devices=[[x for x in i if x!='']for i in device]
+    logging.info("File %s opened with %s columns:", file, len(configs[0]))
+    print "\n\nFile %s opened with %s configurations/columns.\n" % (file, len(configs[0]))
 
-    devices.reverse()
+
     return devices
-
 
 
 def is_valid_ip(ip):
@@ -250,15 +239,22 @@ def open_ssh_conn(ip):
         #Closing the connection
         session.close()
         logging.info("SSH session with %s %s closed.", ip[0],ip[1])
-        if multithread:
-            for x in err:
-                print x
+        err = [x for x in err if multithread]
 
 
     except paramiko.AuthenticationException:
+       print("*** Authentication failed, please verify credentials for: %s" % username)
+    except paramiko.SSHException as sshException:
+       print("*** Unable to establish SSH connection: %s" % sshException)
+    except paramiko.BadHostKeyException as badHostKeyException:
+       print("*** Unable to verify server's host key: %s" % badHostKeyException)
+    except Exception as e:
+        print "*** Operation error: %s\n" % e
         logging.warning("SSH session with %s %s could not be made. Please check username, password, configuration, etc.", ip[0],ip[1])
-        print "* Invalid username or password. \n* Please check the username/password file or the device configuration!"
-        print "* Closing program...\n"
+
+
+    for x in err:
+        print x
 
 
     return err
@@ -295,7 +291,7 @@ def reachable(x):
             print "Ping to the following device has FAILED:", ip
             print "Please check reachability or IP and try again"
             print "\n# # # # # # # # # # # # # # # # # # # # # # # # # # # #\n\n\n"
-            logging.warning("Ping to the following device has FAILED:", ip)
+            logging.warning("Ping to the following device has FAILED: %s", ip)
 
             check2 = False
             sys.exit()
