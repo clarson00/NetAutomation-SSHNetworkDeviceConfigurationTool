@@ -18,6 +18,7 @@ def process_command_line(argv):
     global dlogin
     global multithread
     global time_wait
+    global log_file
 
 
     class MyParser(optparse.OptionParser):
@@ -104,6 +105,8 @@ def process_command_line(argv):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    log_file = os.path.join(directory,"bancit_session.log")
+
     ### set file naming mode
     if options.mode == "IP":
         mode = "IP"
@@ -111,8 +114,8 @@ def process_command_line(argv):
         mode = "NAME"
 
     if options.fresh_logs:
-        if os.path.exists("ssh-configurator-session.log"):
-            os.remove("ssh-configurator-session.log")
+        if os.path.exists(log_file):
+            os.remove(log_file)
 
 
 
@@ -314,9 +317,10 @@ def create_threads(configs):
     for th in threads:
         th.join()
 
+def revert():
+    print "The reversion system is under construction"
 
 ############# Single thread the task so devices done in order #############
-
 def create_interactive(configs):
     c=False
 
@@ -329,6 +333,7 @@ def create_interactive(configs):
         while True:
             print "\n\n****** Job %s of %s  ******" % (count, len(configs))
             print "****** The following commands will be sent to %s at %s ******\n" % (ip[0],ip[1])
+            print "***************************"
             for cmd in ip[3:]:
                 print cmd
             print "\n****** End job %s commands set ******" % count
@@ -372,7 +377,7 @@ def create_interactive(configs):
                 elif v[:1] == "n":
                     break
                 elif v[:1] == "r":
-                    print "The reversion system is still under construction.."
+                    revert()
                 else:
                     pass
         else:
@@ -410,9 +415,11 @@ def logs_review():
 
 def main(argv=None):
 
+
+
     ## Read in command line arguments and start logging
     options, args = process_command_line(argv)
-    logging.basicConfig(filename='ssh-configurator-session.log', format='%(levelname)s:%(asctime)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
+    logging.basicConfig(filename=log_file, format='%(levelname)s:%(asctime)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
     logging.info('\n')
     logging.info('New session started')
     logging.info('CMD line args: %s', args)
