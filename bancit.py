@@ -4,7 +4,7 @@ import optparse
 import sys
 import platform
 import subprocess
-import paramiko
+from netmiko import ConnectHandler
 import threading
 import time
 import re
@@ -177,46 +177,32 @@ def is_valid_ip(ip):
 def open_ssh_conn(ip):
     logging.info("SSH received job for %s with ip of %s", ip[0],ip[1])
     err=[]
+    cisco_xrv = {
+         'device_type': 'cisco_ios',
+         'ip':   ip[1],
+         'username': username,
+         'password': password,
+         'secret' : password,
+         'port': 22,               # there is a firewall performing NAT in front of this device
+         'verbose': True,
+}
 
     try:
 
-        session = paramiko.SSHClient()
-
-        #This allows auto-accepting unknown host keys
-        session.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        logging.info("Attempting to SSH to %s at %s", ip[0],ip[1])
-        session.connect(ip[1], username=username, password=password)
-        connection = session.invoke_shell()
-        logging.info("Connected to %s %s", ip[0],ip[1])
-        print "****   Sending to device %s   ****" % ip[0]
-
-        #Setting terminal length for entire output - disable pagination
-        connection.send("terminal length 0")
-        connection.send("\n")
-        logging.info("Entering enable mode on %s", ip[0])
-        #Entering enable mode
-        connection.send("\n")
-        connection.send("enable\n")
-        connection.send(password + "\n")
-        time.sleep(1)
-
-
-
+        session = ConnectHandler(**cisco_xrv)
+        session.find_prompt()
+        session.enable()
+        print "\n\n>>>>>>>>> Device {0} <<<<<<<<<".format(ip[0])
         #Read commands from the list and send to device
-
-        cmds = ip[2:]
         logging.info("Sending commands to %s %s", ip[0],ip[1])
-        for x in cmds:
-            connection.send(x + '\n')
-        time.sleep(time_wait)
-        router_output = connection.recv(131072)
-
-        print "****   Configuration response for: %s  ****\n"  %ip[0]
-        print router_output
-
-        if re.search(r"% ", router_output) or re.search(r"Bad mask /", router_output) or re.search(r"IP address conflicts", router_output):
-            print "@@@@ There was one or more possible errors detected on device %s @@@@" % ip[0]
-            errmsg = "Device Named: %s with IP: %s is believed to have errors. Please check the implementation log" % (ip[0],ip[1])
+        cmds = ip[2:]
+        output = session.send_config_set(cmds)
+        #time.sleep(time_wait)
+        print output
+        print ">>>>>>>>> End <<<<<<<<<\n\n"
+        if re.search(r"% ", output) or re.search(r"Bad mask /", output) or re.search(r"IP address conflicts", output):
+            errmsg = "Device %s may have errors. Please review the output above or check the implementation logs" % (ip[0])
+            print errmsg
             logging.warning(errmsg)
             err.append(errmsg)
             print "\nConfiguration for %s complete with errors " % ip[0]
@@ -233,28 +219,20 @@ def open_ssh_conn(ip):
         logging.info("Writing implementation log for %s %s", ip[0],ip[1])
         filer = open( name_of_file , 'w+')
         logging.info("writing file %s", name_of_file)
-        filer.write(router_output)
+        filer.write(output)
         filer.close()
         logging.info("Saved file %s ", name_of_file)
 
 #update the session log (TO-DO. Cappture all the lines/copnfigs with errors or any errors and add to sessions log.
 
-        #Closing the connection
-        session.close()
+
         logging.info("SSH session with %s %s closed.", ip[0],ip[1])
         err = [x for x in err if multithread]
 
 
-    except paramiko.AuthenticationException:
-       print("*** Authentication failed, please verify credentials for: %s" % username)
-    except paramiko.SSHException as sshException:
-       print("*** Unable to establish SSH connection: %s" % sshException)
-    except paramiko.BadHostKeyException as badHostKeyException:
-       print("*** Unable to verify server's host key: %s" % badHostKeyException)
     except Exception as e:
         print "*** Operation error: %s\n" % e
-        logging.warning("SSH session with %s %s could not be made. Please check username, password, configuration, etc.", ip[0],ip[1])
-
+        logging.warning("Operation error: %S  on %s %s",e, ip[0],ip[1])
 
     for x in err:
         print x
