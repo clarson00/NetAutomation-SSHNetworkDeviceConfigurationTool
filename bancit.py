@@ -158,6 +158,19 @@ def open_file(args=None):
 
     return devices
 
+def revert(idx,device):
+    x=open_file()
+
+    for dev in x:
+        print dev[0],dev[1]
+
+    print "The device you chose for reversion was %s at %s, is "
+
+
+    create_interactive(x)
+
+
+
 
 def is_valid_ip(ip):
     check = False
@@ -295,8 +308,7 @@ def create_threads(configs):
     for th in threads:
         th.join()
 
-def revert():
-    print "The reversion system is under construction"
+
 
 ############# Single thread the task so devices done in order #############
 def create_interactive(configs):
@@ -357,7 +369,8 @@ def create_interactive(configs):
                 elif v[:1] == "n":
                     break
                 elif v[:1] == "r":
-                    revert()
+                    revert(count,ip)
+                    break
                 else:
                     pass
         else:
@@ -367,8 +380,6 @@ def create_interactive(configs):
                     sys.exit()
                 elif v[:1] == "n":
                     break
-                elif v[:1] == "r":
-                    print "The reversion system is still under construction.."
                 else:
                     pass
 
