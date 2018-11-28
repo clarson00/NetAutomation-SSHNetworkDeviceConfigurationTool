@@ -215,7 +215,7 @@ def open_ssh_conn(ip):
         print router_output
 
         if re.search(r"% ", router_output) or re.search(r"Bad mask /", router_output) or re.search(r"IP address conflicts", router_output):
-            print "*** There was one or more possible errors detected on device %s ***" % ip[0]
+            print "@@@@ There was one or more possible errors detected on device %s @@@@" % ip[0]
             errmsg = "Device Named: %s with IP: %s is believed to have errors. Please check the implementation log" % (ip[0],ip[1])
             logging.warning(errmsg)
             err.append(errmsg)
@@ -331,16 +331,18 @@ def create_interactive(configs):
 
     for count, ip in enumerate(configs, start=1):
         while True:
-            print "\n\n****** Job %s of %s  ******" % (count, len(configs))
-            print "****** The following commands will be sent to %s at %s ******\n" % (ip[0],ip[1])
-            print "***************************"
+            print"\n\n"
+            print "***********************************************************************"
+            print "******       Job %s of %s:  %s at %s       ******" % (count, len(configs),ip[0],ip[1])
+            print "***********************************************************************"
+            print"\n"
             for cmd in ip[3:]:
                 print cmd
-            print "\n****** End job %s commands set ******" % count
-            print "\n"
+            print"\n"
+            print "***************************************"
+            print "******* End job %s commands set *******" % count
+            print "***************************************\n"
             print "Configure device %s at %s with job %s?" % (ip[0],ip[1],count)
-
-
             go = raw_input("(c)onfigure, (s)kip, or (q)uit?")
             try:
                 if go[:1].lower() == "q":
