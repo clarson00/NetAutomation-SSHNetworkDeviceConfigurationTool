@@ -27,44 +27,56 @@ def process_command_line(argv):
 
 
     usage = '\n%prog list_file <options>\n'
-    desc= 'This script accepts a CSV file of devices and commands to send to each device. File can be constructed in Excel as follows: '\
-    'Each column in the spreadsheet is a single device. '\
-        'The first row should be the hostname.'\
-        'The second row should be the IP.'\
-        'All subsequent rows in a column will sent to the device as commands.'\
-        'Each devices output is logged to a separate file. '\
+    desc= 'Accepts a CSV file of devices and the commands to send to each device.' \
+          ' File can be constructed in Excel as follows: ' \
+          'Each column in the spreadsheet is a single device. '\
+        'The first row in a column should be the hostname. '\
+        'The second row in a column should be the IP. '\
+        'All subsequent rows in a column can be commands or url:payload pairs for restconf and netconf devices. '\
+        'Every devices output is logged to a separate file. '\
 
 
     parser =MyParser('\n'+usage,description=desc,epilog="""\nExamples:
 
-    'ssh-config.py devices.csv'
-    Will open devices.csv and look for a device name in row 1 of each column, an IP address in row 2 of each column, and treat row 3
-    and beyond in each column as commands to be executed against the device identified by row 1 and 2. 
-
-
+'python bancit.py devices.csv'
+    Will open devices.csv and look for a device name in row 1 of each column, an IP address in row 2 of each column, and treat row 3 and beyond in each column as commands to be executed against the device identified by row 1 and 2. 
+    
+'python bancit.py devices.csv -d CHG106\PRE'
+    Will store the output and log files in the CHG106\PRE directory. The directory will be created if not exists.
+    
+'python bancit.py devices.csv -f revert.csv'
+    Adds a reversion file. This just pre-loads the file. The user can choose a different file during runtime
+    
+'python bancit.py devices.csv -m
+    This will attempt to multithread commands out to all devices in parelle and is not interactive. It will push all the configs and provide output to the screen and logs all at once as it completes. 
+    
+    
     """)
 
 
-    parser.add_option("-d",
+    parser.add_option("-d", "--directory",
                       action="store", dest="directory",
-                      help="Use this directory for output")
+                      help="Set directory for output")
 
 
-    parser.add_option("-m",
+    parser.add_option("-m", "--multithread",
                       action="store_true",
                       dest="multithread",
-                      help="Multithread configurations. Configurations will be pushed out to all devices at once."
-                           "DO NOT use this mode if each device requires a different username or password, or you want to send a configuration then see a "
-                           "repsonse then send the next confriguration and see a respone etc.")
+                      help="Configurations will be pushed out to all devices at once. Do not use this mode if each device requires a different username or password, or you want to send a configuration then see a "
+                           "ressonse then send the next confriguration and see a respone etc.")
 
-    parser.add_option("-l",
+    parser.add_option("-l","--login-per-device",
                       action="store_true", dest="dlogin",
-                      help="Require a seperate login for each device. The default assumes a single username and password across all devices. Cannot be used with -m currently")
+                      help="Require a seperate login for each device. The default assumes a single username and password across all devices as is often seen with TACACS/ACS, SSO and similair environments. Cannot be used with -m currently")
 
-    parser.add_option("-t",
+    parser.add_option("-t","--time-interval",
                       action="store", dest="time_wait", default=2, type="float",
-                      help="Set's a wait time for output after sending all commands to device. For commands that can run long before providing output ie.e wr memory or "
-                           "show ip route in routers with long routing tables")
+                      help="Set's a wait time for output after sending all commands to device. For commands that can run long before providing output ie.e wr memory or show ip route in routers with long routing tables")
+
+
+    parser.add_option("-f", "--freshen-logs",
+                      action="store_true", dest="fresh_logs",
+                      help="Deletes and creates new session log file")
 
 
     parser.add_option('-o',
@@ -74,13 +86,12 @@ def process_command_line(argv):
                       metavar="OUTPUT_MODE",
                       choices=['IP', 'NAME',],
                       default='IP',
-                      help=' Commands file output naming mode. IP = use IP in filename. NAME = use hostname in filename. Default is to use IP',)
+                      help='Commands file output naming mode. IP = use IP in filename. NAME = use hostname in filename. Default is to use IP',)
 
 
-    parser.add_option("-f",
+    parser.add_option("-r", "--reversion-file",
                       action="store_true", dest="fresh_logs",
-                      help="Deletes and creates new session log file")
-
+                      help="The reversion system is available without this option. This just pre-loads the file.")
 
 
     options, args = parser.parse_args()
@@ -99,44 +110,41 @@ def process_command_line(argv):
     multithread = options.multithread
     time_wait = options.time_wait
 
+    #Set directory to current directory or to -d option
     directory = os.getcwd()
     if options.directory != None:
         directory = options.directory
     if not os.path.exists(directory):
         os.makedirs(directory)
 
+    # set logfile path to follow directory
     log_file = os.path.join(directory,"bancit_session.log")
 
-    ### set file naming mode
+    # set file naming mode
     if options.mode == "IP":
         mode = "IP"
     if options.mode == "NAME":
         mode = "NAME"
 
+    #If the -f option to freshen logs, look for and delte.
     if options.fresh_logs:
         if os.path.exists(log_file):
             os.remove(log_file)
 
-
-
-
     return options, args
 
-
+# Function to open the file
 def open_file(args=None):
-    # Create empty list
-    device=[]
-    devices=[]
 
-    #If command line argument not set for file, ask user
+    #If command line argument not set for file, ask user for file and path
     while True:
         if not args:
-            file = raw_input("What is the path/filename to the configuration csv file?\n>")
+            file = raw_input("Path and filename of the csv configuration file:\n>")
         else:
             file=args[0]
         logging.info("Attempting to open file: %s", file)
 
-        #Open file and transpose list of devices and configuraitons
+        #Open file and transpose list of devices and configurations
         try:
             with open(file) as csvfile:
                 reader = csv.reader(csvfile, delimiter = ',', quotechar= '|')
@@ -171,8 +179,6 @@ def is_valid_ip(ip):
 
     return check
 
-
-
 ###### Open SSHv2 connection to devices and run command in command file
 def open_ssh_conn(ip):
     logging.info("SSH received job for %s with ip of %s", ip[0],ip[1])
@@ -200,10 +206,7 @@ def open_ssh_conn(ip):
         connection.send(password + "\n")
         time.sleep(1)
 
-
-
         #Read commands from the list and send to device
-
         cmds = ip[2:]
         logging.info("Sending commands to %s %s", ip[0],ip[1])
         for x in cmds:
@@ -211,9 +214,19 @@ def open_ssh_conn(ip):
         time.sleep(time_wait)
         router_output = connection.recv(131072)
 
-        print "****   Configuration response for: %s  ****\n"  %ip[0]
+        #send device response to console
+        print"\n\n"
+        print "***********************************************************************"
+        print "******       Configuration response for: %s        ******" % ip[0]
+        print "***********************************************************************"
+        print"\n"
         print router_output
+        print"\n\n"
+        print "***********************************************************************"
+        print "******       Configuration for %s complete       ******" % ip[0]
+        print "***********************************************************************"
 
+        #search for errors in device output
         if re.search(r"% ", router_output) or re.search(r"Bad mask /", router_output) or re.search(r"IP address conflicts", router_output):
             print "*** There was one or more possible errors detected on device %s ***" % ip[0]
             errmsg = "Device Named: %s with IP: %s is believed to have errors. Please check the implementation log" % (ip[0],ip[1])
@@ -223,21 +236,18 @@ def open_ssh_conn(ip):
         else:
             print "\nConfiguration for %s complete" % ip[0]
 
-
-
-#log the router output to a file
+        #log the router output to a file using naming mode defined in opitons
         if mode =="IP":
             name_of_file = os.path.join(directory,ip[1] + "_"+ "log.txt")
         if mode=="NAME":
             name_of_file = os.path.join(directory,ip[0] + "_"+ "log.txt")
+        #log action to session log
         logging.info("Writing implementation log for %s %s", ip[0],ip[1])
         filer = open( name_of_file , 'w+')
-        logging.info("writing file %s", name_of_file)
         filer.write(router_output)
         filer.close()
         logging.info("Saved file %s ", name_of_file)
 
-#update the session log (TO-DO. Cappture all the lines/copnfigs with errors or any errors and add to sessions log.
 
         #Closing the connection
         session.close()
@@ -317,8 +327,22 @@ def create_threads(configs):
     for th in threads:
         th.join()
 
-def revert():
-    print "The reversion system is under construction"
+def revert(idx,job):
+    revert_file=open_file()
+    for configs in revert_file:
+        if configs[1] == job[1]:
+            revert_job = configs
+
+
+    print " >>>>>>>>>>>>> REVERSION SYSTEM <<<<<<<<<<<<<<<\n\n"
+    for cmd in revert_job[3:]:
+        print cmd
+    print "\n\n"
+    raw_input ("(c)onfigure device or (s)kip reversion and return to job?")
+
+    z = open_ssh_conn(revert_job)
+
+    return
 
 ############# Single thread the task so devices done in order #############
 def create_interactive(configs):
@@ -327,17 +351,19 @@ def create_interactive(configs):
     if not dlogin:
         user_creds()
 
-
-
     for count, ip in enumerate(configs, start=1):
         while True:
-            print "\n\n****** Job %s of %s  ******" % (count, len(configs))
-            print "****** The following commands will be sent to %s at %s ******\n" % (ip[0],ip[1])
-            print "***************************"
+            print"\n\n"
+            print "***********************************************************************"
+            print "******       Job %s of %s:  %s at %s       ******" % (count, len(configs),ip[0],ip[1])
+            print "***********************************************************************"
+            print"\n"
             for cmd in ip[3:]:
                 print cmd
-            print "\n****** End job %s commands set ******" % count
-            print "\n"
+            print"\n"
+            print "***************************************"
+            print "******* End job %s commands set *******" % count
+            print "***************************************\n"
             print "Configure device %s at %s with job %s?" % (ip[0],ip[1],count)
 
 
@@ -377,7 +403,9 @@ def create_interactive(configs):
                 elif v[:1] == "n":
                     break
                 elif v[:1] == "r":
-                    revert()
+                    revert(count,ip)
+                    print ">>> Reversion complete <<<"
+                    #break
                 else:
                     pass
         else:
@@ -387,8 +415,6 @@ def create_interactive(configs):
                     sys.exit()
                 elif v[:1] == "n":
                     break
-                elif v[:1] == "r":
-                    print "The reversion system is still under construction.."
                 else:
                     pass
 
@@ -444,7 +470,7 @@ def main(argv=None):
         else:
            print "%s is NOT a valid IP. Please check configs and try again." % ip[1]
            logging.warning("%s is not a valid IP", ip)
-           sys.exit()
+
 
     # Does user want to check reachability of IP? Is so, call reachable function
     while True:
