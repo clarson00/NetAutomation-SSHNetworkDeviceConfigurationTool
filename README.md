@@ -9,4 +9,3 @@ I run the pre/post csv through the bancit.py script saving to a PRE-CHANGE direc
 
 Once I am done, I use the proveit.py script to load up all the files in the PRE and POST directories side by side in excel with each device having its own tab. This allows me to compare the before and after. Using proveit.py with the -c switch will automatically compare the files and highlight the differences between the pre and post files right in the spreadsheet using different colored text to note additions, removals, changes between the pre and post files.
 
-Future updates will allow the script to except a spreadsheet of devices and configure them via SSH (like it does now), or NETCONF, RESTCONF, or other API. In addition, I will add modules for Checkpoint, Fortigate, and other devices.
