@@ -26,13 +26,14 @@ def process_command_line(argv):
             return self.epilog
 
 
-    usage = '\n%prog list_file <options>\n'
+    usage = '\n%prog [options] arg1 \n'
     desc= 'Accepts a CSV file of devices and the commands to send to each device.' \
           ' File can be constructed in Excel as follows: ' \
           'Each column in the spreadsheet is a single device. '\
         'The first row in a column should be the hostname. '\
         'The second row in a column should be the IP. '\
-        'All subsequent rows in a column can be commands or url:payload pairs for restconf and netconf devices. '\
+        'All subsequent rows in a column can be commands or url:payload pairs for restconf and netconf devices. ' \
+          'File should be saved as csv. '\
         'Every devices output is logged to a separate file. '\
 
 
@@ -44,7 +45,7 @@ def process_command_line(argv):
 'python bancit.py devices.csv -d CHG106\PRE'
     Will store the output and log files in the CHG106\PRE directory. The directory will be created if not exists.
     
-'python bancit.py devices.csv -f revert.csv'
+'python bancit.py devices.csv -r revert.csv'
     Adds a reversion file. This just pre-loads the file. The user can choose a different file during runtime
     
 'python bancit.py devices.csv -m
@@ -53,11 +54,9 @@ def process_command_line(argv):
     
     """)
 
-
     parser.add_option("-d", "--directory",
                       action="store", dest="directory",
                       help="Set directory for output")
-
 
     parser.add_option("-m", "--multithread",
                       action="store_true",
@@ -73,11 +72,9 @@ def process_command_line(argv):
                       action="store", dest="time_wait", default=2, type="float",
                       help="Set's a wait time for output after sending all commands to device. For commands that can run long before providing output ie.e wr memory or show ip route in routers with long routing tables")
 
-
     parser.add_option("-f", "--freshen-logs",
                       action="store_true", dest="fresh_logs",
                       help="Deletes and creates new session log file")
-
 
     parser.add_option('-o',
                       type='choice',
@@ -88,24 +85,18 @@ def process_command_line(argv):
                       default='IP',
                       help='Commands file output naming mode. IP = use IP in filename. NAME = use hostname in filename. Default is to use IP',)
 
-
     parser.add_option("-r", "--reversion-file",
                       action="store_true", dest="fresh_logs",
                       help="The reversion system is available without this option. This just pre-loads the file.")
 
-
     options, args = parser.parse_args()
-
-
-
-
 
     ### cannot current;y run multithreading and indivual logins at the same time
     if options.dlogin and options.multithread:
         print "You cannot have multihread and per device login at the same time!"
         sys.exit()
 
-### set initial options
+    ### set initial options
     dlogin = options.dlogin
     multithread = options.multithread
     time_wait = options.time_wait
@@ -161,8 +152,7 @@ def open_file(args=None):
     #remove all the blank configuration lines from the final list
     devices=[[x for x in i if x!='']for i in device]
     logging.info("File %s opened with %s columns:", file, len(configs[0]))
-    print "\n\nFile %s opened with %s configurations/columns.\n" % (file, len(configs[0]))
-
+    print "\n\nFile %s opened with %s columns.\n" % (file, len(configs[0]))
 
     return devices
 
@@ -241,7 +231,7 @@ def open_ssh_conn(ip):
             name_of_file = os.path.join(directory,ip[1] + "_"+ "log.txt")
         if mode=="NAME":
             name_of_file = os.path.join(directory,ip[0] + "_"+ "log.txt")
-        #log action to session log
+        #log action to session log, save and close implementation output file
         logging.info("Writing implementation log for %s %s", ip[0],ip[1])
         filer = open( name_of_file , 'w+')
         filer.write(router_output)
@@ -300,10 +290,10 @@ def reachable(x):
             break
 
         else:
-            print "\n\n# # # # # # # # # # # # # # # # # # # # # # # # # # # #\n"
-            print "Ping to the following device has FAILED:", ip
-            print "Please check reachability or IP and try again"
-            print "\n# # # # # # # # # # # # # # # # # # # # # # # # # # # #\n\n\n"
+            print "\n\n# # # # # # # # # # # # # # # # # # # # # # # # # # # #"
+            print "Ping to device %s has FAILED:", ip
+            print "Please check and try again"
+            print "# # # # # # # # # # # # # # # # # # # # # # # # # # # #\n\n"
             logging.warning("Ping to the following device has FAILED: %s", ip)
 
             check2 = False
@@ -421,8 +411,6 @@ def create_interactive(configs):
 
 
 
-
-
 ##### Get user login information
 def user_creds():
     global username
@@ -441,8 +429,6 @@ def logs_review():
 
 def main(argv=None):
 
-
-
     ## Read in command line arguments and start logging
     options, args = process_command_line(argv)
     logging.basicConfig(filename=log_file, format='%(levelname)s:%(asctime)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
@@ -452,6 +438,7 @@ def main(argv=None):
     logging.info('CMD line options: %s', options)
     print "New session started..."
     print "Reading in cmd line options & arguments...\n"
+    print "Getting configuration file...\n"
 
 ## Maybe inplement a -v or -vv option in the future to show debug prints
 #    print "CMD line args: %s" % args
@@ -469,8 +456,8 @@ def main(argv=None):
             print "%s is a valid IP" % ip[1]
         else:
            print "%s is NOT a valid IP. Please check configs and try again." % ip[1]
-           logging.warning("%s is not a valid IP", ip)
-
+           logging.warning("%s is not a valid IP. Exiting...", ip)
+           exit()
 
     # Does user want to check reachability of IP? Is so, call reachable function
     while True:
@@ -498,25 +485,13 @@ def main(argv=None):
     #if not multithreaded, call the interactive function. Log the activity
     logging.info("Starting worker threads")
     if options.multithread:
+        logging.info("Multithread")
         logging.info("Getting user credentials")
         print "Enter Device(s) credentials:\n"
         user_creds()
         create_threads(configs)
     else:
         create_interactive(configs)
-
-#### Future release - offer option to review session and implementation logs from disk
-#
-#    review = raw_input("Would you like to review session logs?")
-#    files = glob.glob(directory)
-#    for f in files:
-#        with open(f) as fle:
-#            t=fle.read()
-#            print t
-
-
-
-
 
     logging.info("Session Complete")
     print "\n\n\nSession complete. Thanks for using BANCIT - Bobs Awesome Network Configuration Implementation Tool"

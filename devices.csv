@@ -1,31 +1,40 @@
-Router 1,Router 2
-192.168.1.190,192.168.1.192
-,
-,
-,
-,
-!//tedsfggd,
-,
-,
-,
-config t,config t
-int gi2,int gi2
-ip add 1.1.1.1 255.255.255.0,ip add 2.2.2.2 255.255.255.0
-!,!
-ip route 5.5.5.5 255.255.255.255 2.2.2.2,ip route 5.5.5.5 255.255.255.255 1.1.1.1
-!,!
-,int gi 3
-,ip add 3.3.3.3 255.255.255.255
-router bgp 65549,ip route 4.4.4.4 255.255.255.255 1.1.1.1
- bgp log-neighbor-changes,
-neigh 192.168.1.154 remote-as 65549,
-,router bgp 65549
-, bgp log-neighbor-changes
-end,neigh 192.168.1.153 remote-as 65549
-,
-,end
-,
-,
-sh ip bgp summ,sh ip bgp summ
-,
-wr me,wr me
+Router 1,Router 2,Router3,Fortigate
+192.168.1.190,192.168.1.192,192.168.1.193,192.168.1.88
+,,,
+,,,
+,,,
+,,,
+!//tedsfggd,,,
+,,,
+,,, config system console
+,,,  set output standard
+config t,config t,config t, end
+int gi2,int gi2,int gi2,
+ip add 1.1.1.1 255.255.255.0,ip add 2.2.2.2 255.255.255.0,ip add 2.2.2.2 255.255.255.0,
+!,!,!,config router static
+ip route 5.5.5.5 255.255.255.255 2.2.2.2,ip route 5.5.5.5 255.255.255.255 1.1.1.1,ip route 5.5.5.5 255.255.255.255 1.1.1.1,edit 2
+!,!,!,set device port1
+,int gi 3,int gi 3,set dst 192.168.10.0/24
+,ip add 3.3.3.3 255.255.255.255,ip add 3.3.3.3 255.255.255.255,set gateway 192.168.1.50
+router bgp 65549,ip route 4.4.4.4 255.255.255.255 1.1.1.1,ip route 4.4.4.4 255.255.255.255 1.1.1.1,end
+ bgp log-neighbor-changes,,,
+neigh 192.168.1.154 remote-as 65549,,,
+,router bgp 65549,router bgp 65549,
+, bgp log-neighbor-changes, bgp log-neighbor-changes,
+end,neigh 192.168.1.153 remote-as 65549,neigh 192.168.1.153 remote-as 65549,
+,,,
+,end,end,config firewall policy
+,,,edit 2
+,,,set name TEST2
+sh ip bgp summ,sh ip bgp summ,sh ip bgp summ,set srcintf port5
+,,,set dstintf port4
+wr me,wr me,wr me,set srcaddr SLASH32
+,,,set dstaddr 192.168.5.5_CHA
+,,,set action accept
+,,,set schedule always
+,,,set service ALL
+,,,set fsso disable
+,,,set nat enable
+,,,set comments 'het man wtf'
+,,,next
+,,,end
